@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>초간단 영단어 플래시카드 & 퀴즈</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 flex flex-col items-center justify-center font-sans">
+
+  <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-6">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-xl font-bold text-indigo-600">📖 단어 학습기</h1>
+      <div class="flex gap-2">
+        <button onclick="setMode('card')" id="btn-card" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white" aria-pressed="true">플래시카드</button>
+        <button onclick="setMode('quiz')" id="btn-quiz" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-200 text-gray-700" aria-pressed="false">퀴즈</button>
+      </div>
+    </div>
+
+    <!-- 카드 섹션 -->
+    <div id="card-section">
+      <div class="flex justify-between text-xs text-gray-400 mb-2">
+        <span id="card-progress">1 / 5</span>
+        <div class="flex items-center gap-3">
+          <span id="card-known-count" class="text-emerald-600 font-semibold">외운 단어: 0개</span>
+          <span id="card-wrong-count" class="text-rose-600 font-semibold">틀린 단어: 0개</span>
+        </div>
+      </div>
+
+      <div id="card-area" onclick="flipCard()" role="button" tabindex="0" class="cursor-pointer bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-2xl p-8 min-h-[200px] flex flex-col items-center justify-center text-center shadow-inner transition active:scale-95 focus:outline-indigo-400" aria-label="플래시카드 영역 (클릭 또는 Space로 뒤집기)">
+        <div id="card-front" class="">
+          <div id="card-word" class="text-3xl font-extrabold text-gray-800 mb-2">Apple</div>
+          <p class="text-xs text-gray-400">카드를 누르면 뜻이 보여요</p>
+        </div>
+        <div id="card-back" class="hidden">
+          <div id="card-meaning" class="text-2xl font-bold text-indigo-700 mb-2">사과</div>
+          <div id="card-example" class="text-xs text-gray-600 italic">"I eat an apple every day."</div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-3">
+        <button onclick="playTTS()" id="btn-tts" class="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1" aria-label="발음 듣기 버튼">
+          🔊 발음 듣기
+        </button>
+        <button id="btn-review-toggle" onclick="toggleWrongReview()" class="px-3 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-xl transition" title="틀린 단어만 복습/종료">
+          틀린 단어만 복습
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <button onclick="nextCard(false)" id="btn-unknown" class="py-2.5 rounded-xl bg-rose-50 text-rose-600 font-bold text-xs hover:bg-rose-100 transition" aria-label="다시 볼래요 버튼">
+          ❌ 다시 볼래요
+        </button>
+        <button onclick="nextCard(true)" id="btn-known" class="py-2.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold text-xs hover:bg-emerald-100 transition" aria-label="외웠어요 버튼">
+          ✅ 외웠어요!
+        </button>
+      </div>
+
+      <div class="mt-4 flex items-center justify-between gap-2">
+        <button onclick="clearWrongWords()" class="text-xs text-red-600 underline">틀린 단어 초기화</button>
+        <div class="text-xs text-gray-400">(Space: 뒤집기, ←: 다시, →: 외움)</div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-gray-100">
+        <p class="text-xs font-semibold text-gray-500 mb-2">➕ 나만의 단어 추가</p>
+        <div class="flex gap-2">
+          <input id="input-word" placeholder="영단어" class="w-1/2 p-2 text-xs border rounded-lg focus:outline-indigo-500" />
+          <input id="input-meaning" placeholder="뜻" class="w-1/2 p-2 text-xs border rounded-lg focus:outline-indigo-500" />
+          <button onclick="addWord()" class="px-3 bg-indigo-600 text-white rounded-lg text-xs font-bold whitespace-nowrap">추가</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 퀴즈 섹션 -->
+    <div id="quiz-section" class="hidden">
+      <div class="text-center mb-4">
+        <span class="text-xs text-gray-400">알맞은 뜻을 고르세요</span>
+        <h2 id="quiz-word" class="text-3xl font-extrabold text-gray-800 mt-1">Apple</h2>
+      </div>
+
+      <div id="quiz-options" class="grid grid-cols-1 gap-2.5 mb-4" aria-live="polite"></div>
+      <div id="quiz-feedback" class="text-center text-xs font-bold py-2 rounded-lg hidden" role="status"></div>
+
+      <div class="flex gap-2">
+        <button id="btn-next-quiz" onclick="renderQuiz()" class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-xl transition">
+          다음 문제 →
+        </button>
+        <button onclick="startWrongReviewFromQuiz()" class="px-3 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-xl transition" title="퀴즈에서 틀린 단어로 바로 복습">
+          틀린 단어로 복습
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // 기본 단어 목록 (초기값)
+    const DEFAULT_WORDS = [
+      { word: "Accommodate", meaning: "수용하다, 편의를 봐주다", example: "The hall can accommodate 100 people.", known: false },
+      { word: "Feasible", meaning: "실행 가능한", example: "The plan is economically feasible.", known: false },
+      { word: "Serendipity", meaning: "뜻밖의 행운, 우연한 발견", example: "Finding this cafe was serendipity.", known: false },
+      { word: "Resilience", meaning: "회복력, 복원력", example: "She showed great resilience.", known: false },
+      { word: "Ubiquitous", meaning: "어디에나 있는", example: "Smartphones are ubiquitous today.", known: false }
+    ];
+
+    // 상태: allWords는 마스터, words는 현재 작업 리스트(전체/복습)
+    let allWords = [];
+    let words = []; // 실제 카드에서 사용하는 배열 (부분집합일 수 있음)
+    let wrongWords = []; // 틀린 단어들의 word 텍스트 배열
+    let reviewMode = false; // 복습중인지
+    let currentIndex = 0;
+    let isFlipped = false;
+    let lastQuizIndex = -1;
+
+    // 로컬스토리지 키
+    const KEY_ALL = 'my_flash_words_v1';
+    const KEY_INDEX = 'my_flash_index_v1';
+    const KEY_WRONG = 'my_wrong_words_v1';
+    const KEY_REVIEW_MODE = 'my_review_mode_v1';
+
+    // 로드
+    function loadState() {
+      try {
+        const rawAll = localStorage.getItem(KEY_ALL);
+        if (rawAll) {
+          // 기존 버전은 단순 배열로 저장되어 있을 수 있어 호환 처리
+          const parsed = JSON.parse(rawAll);
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].word !== undefined) {
+            allWords = parsed;
+          } else if (Array.isArray(parsed)) {
+            // 예기치 못한 구조면 기본값 사용
+            allWords = DEFAULT_WORDS.slice();
+          } else {
+            allWords = DEFAULT_WORDS.slice();
+          }
+        } else {
+          allWords = DEFAULT_WORDS.slice();
+        }
+      } catch (e) {
+        console.error('load allWords error', e);
+        allWords = DEFAULT_WORDS.slice();
+      }
+
+      try {
+        const rawWrong = localStorage.getItem(KEY_WRONG);
+        wrongWords = rawWrong ? JSON.parse(rawWrong) : [];
+        if (!Array.isArray(wrongWords)) wrongWords = [];
+      } catch (e) {
+        console.error('load wrongWords error', e);
+        wrongWords = [];
+      }
+
+      try {
+        const rm = localStorage.getItem(KEY_REVIEW_MODE);
+        reviewMode = rm === 'true';
+      } catch (e) {
+        reviewMode = false;
+      }
+
+      // 작업 리스트 설정
+      rebuildWorkingList();
+
+      // 인덱스 보정 (index는 working list 기준)
+      try {
+        const idx = parseInt(localStorage.getItem(KEY_INDEX), 10);
+        if (!isNaN(idx) && idx >= 0 && idx < words.length) currentIndex = idx;
+        else currentIndex = 0;
+      } catch (e) {
+        currentIndex = 0;
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(KEY_ALL, JSON.stringify(allWords));
+        localStorage.setItem(KEY_WRONG, JSON.stringify(wrongWords));
+        localStorage.setItem(KEY_REVIEW_MODE, String(reviewMode));
+        localStorage.setItem(KEY_INDEX, String(currentIndex));
+      } catch (e) {
+        console.error('saveState error', e);
+      }
+      // UI counts 갱신
+      updateCounts();
+    }
+
+    function rebuildWorkingList() {
+      if (reviewMode) {
+        // 틀린 단어 목록으로 작업 리스트 구성
+        const set = new Set(wrongWords.map(s => s.toLowerCase()));
+        words = allWords.filter(w => set.has(w.word.toLowerCase()));
+      } else {
+        words = allWords.slice();
+      }
+    }
+
+    function getKnownCount() {
+      return allWords.filter(w => w.known).length;
+    }
+
+    function updateCounts() {
+      document.getElementById('card-known-count').textContent = `외운 단어: ${getKnownCount()}개`;
+      document.getElementById('card-wrong-count').textContent = `틀린 단어: ${wrongWords.length}개`;
+      // 복습 모드 버튼 텍스트
+      const btn = document.getElementById('btn-review-toggle');
+      if (reviewMode) {
+        btn.textContent = '복습 종료';
+        btn.classList.add('bg-yellow-200');
+      } else {
+        btn.textContent = '틀린 단어만 복습';
+        btn.classList.remove('bg-yellow-200');
+      }
+    }
+
+    // 모드 전환
+    function setMode(mode) {
+      const isCard = mode === 'card';
+      document.getElementById('card-section').classList.toggle('hidden', !isCard);
+      document.getElementById('quiz-section').classList.toggle('hidden', isCard);
+      document.getElementById('btn-card').className = `px-3 py-1.5 text-xs font-semibold rounded-lg ${isCard ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
+      document.getElementById('btn-quiz').className = `px-3 py-1.5 text-xs font-semibold rounded-lg ${!isCard ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
+      document.getElementById('btn-card').setAttribute('aria-pressed', String(isCard));
+      document.getElementById('btn-quiz').setAttribute('aria-pressed', String(!isCard));
+      if (!isCard) renderQuiz();
+      else renderCard();
+    }
+
+    // 카드 렌더링
+    function renderCard() {
+      updateCounts();
+      if (!words || words.length === 0) {
+        document.getElementById('card-word').textContent = '단어가 없습니다';
+        document.getElementById('card-meaning').textContent = '';
+        document.getElementById('card-example').textContent = '';
+        document.getElementById('card-progress').textContent = '0 / 0';
+        return;
+      }
+      if (currentIndex < 0) currentIndex = 0;
+      if (currentIndex >= words.length) currentIndex = 0;
+      const current = words[currentIndex];
+      document.getElementById('card-word').textContent = current.word;
+      document.getElementById('card-meaning').textContent = current.meaning;
+      document.getElementById('card-example').textContent = current.example ? `"${current.example}"` : '';
+      const modeLabel = reviewMode ? ' (복습중)' : '';
+      document.getElementById('card-progress').textContent = `${currentIndex + 1} / ${words.length}${modeLabel}`;
+      isFlipped = false;
+      document.getElementById('card-front').classList.remove('hidden');
+      document.getElementById('card-back').classList.add('hidden');
+      saveState();
+    }
+
+    // 카드 뒤집기
+    function flipCard() {
+      if (!words || words.length === 0) return;
+      isFlipped = !isFlipped;
+      document.getElementById('card-front').classList.toggle('hidden', isFlipped);
+      document.getElementById('card-back').classList.toggle('hidden', !isFlipped);
+    }
+
+    // 다음 카드 (known: 외웠다 true / 다시볼래 false)
+    function nextCard(known) {
+      if (!words || words.length === 0) return;
+      const current = words[currentIndex];
+      if (known) {
+        // 마스터 리스트에서 해당 단어 찾아 known 표시
+        const idxInAll = allWords.findIndex(w => w.word.toLowerCase() === current.word.toLowerCase());
+        if (idxInAll !== -1) allWords[idxInAll].known = true;
+      }
+      // 다음 인덱스로 이동 (순환)
+      currentIndex = (currentIndex + 1) % words.length;
+      saveState();
+      renderCard();
+    }
+
+    // TTS 재생
+    function playTTS() {
+      if (!words || words.length === 0) return;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(words[currentIndex].word);
+        utter.lang = 'en-US';
+        utter.rate = 0.95;
+        window.speechSynthesis.speak(utter);
+      } else {
+        alert('이 브라우저는 음성 합성을 지원하지 않습니다.');
+      }
+    }
+
+    // 단어 추가 (중복 검사)
+    function addWord() {
+      const wordInput = document.getElementById('input-word');
+      const meaningInput = document.getElementById('input-meaning');
+      const word = wordInput.value.trim();
+      const meaning = meaningInput.value.trim();
+      if (!word || !meaning) return alert('단어와 뜻을 입력해주세요.');
+      const exists = allWords.some(w => w.word.toLowerCase() === word.toLowerCase());
+      if (exists) {
+        return alert(`'${word}' 단어가 이미 목록에 있습니다.`);
+      }
+      const newItem = { word, meaning, example: "", known: false };
+      allWords.push(newItem);
+      // 작업 리스트에도 추가 (복습 모드라면 추가되지 않음)
+      if (!reviewMode) {
+        words.push(newItem);
+        currentIndex = words.length - 1;
+      }
+      wordInput.value = '';
+      meaningInput.value = '';
+      saveState();
+      alert(`'${word}' 단어가 추가되었습니다!`);
+      renderCard();
+    }
+
+    // 퀴즈 렌더링
+    function renderQuiz() {
+      const feedback = document.getElementById('quiz-feedback');
+      const container = document.getElementById('quiz-options');
+      feedback.classList.add('hidden');
+      feedback.textContent = '';
+      container.innerHTML = '';
+
+      if (!allWords || allWords.length === 0) {
+        document.getElementById('quiz-word').textContent = '단어가 없습니다';
+        return;
+      }
+      if (allWords.length === 1) {
+        document.getElementById('quiz-word').textContent = allWords[0].word;
+        const btn = document.createElement('button');
+        btn.className = "w-full p-3 text-left text-xs font-semibold rounded-xl border border-gray-200";
+        btn.textContent = allWords[0].meaning;
+        btn.disabled = true;
+        container.appendChild(btn);
+        return;
+      }
+
+      // 정답 단어 선택 (allWords 기준)
+      let correctIndex;
+      if (allWords.length <= 2) {
+        correctIndex = Math.floor(Math.random() * allWords.length);
+      } else {
+        do { correctIndex = Math.floor(Math.random() * allWords.length); } while (correctIndex === lastQuizIndex && allWords.length > 2);
+      }
+      lastQuizIndex = correctIndex;
+      const correct = allWords[correctIndex];
+
+      document.getElementById('quiz-word').textContent = correct.word;
+
+      const optionCount = Math.min(4, allWords.length);
+      let options = [correct.meaning];
+      const pool = allWords.filter((w, i) => i !== correctIndex).map(w => w.meaning);
+      shuffleArray(pool);
+      for (let i = 0; i < optionCount - 1 && i < pool.length; i++) {
+        if (!options.includes(pool[i])) options.push(pool[i]);
+      }
+      while (options.length < optionCount) options.push('—');
+      shuffleArray(options);
+
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = "w-full p-3 text-left text-xs font-semibold rounded-xl border border-gray-200 hover:bg-indigo-50 transition";
+        btn.textContent = opt;
+        btn.onclick = () => {
+          const isRight = opt === correct.meaning;
+          Array.from(container.children).forEach(b => {
+            b.disabled = true;
+            if (b.textContent === correct.meaning) {
+              b.classList.add('bg-emerald-100', 'text-emerald-700');
+            }
+            if (b.textContent === opt && !isRight) {
+              b.classList.add('bg-rose-100', 'text-rose-700');
+            }
+          });
+
+          // 틀렸을 때 틀린단어 목록에 추가 (중복 방지)
+          if (!isRight) {
+            const lw = correct.word;
+            if (!wrongWords.some(s => s.toLowerCase() === lw.toLowerCase())) {
+              wrongWords.push(lw);
+              saveState();
+            }
+            feedback.classList.remove('hidden');
+            feedback.className = `text-center text-xs font-bold py-2 rounded-lg bg-rose-100 text-rose-700`;
+            feedback.textContent = `❌ 틀렸습니다. 정답: ${correct.meaning}`;
+          } else {
+            feedback.classList.remove('hidden');
+            feedback.className = `text-center text-xs font-bold py-2 rounded-lg bg-emerald-100 text-emerald-700`;
+            feedback.textContent = `🎉 정답입니다!`;
+          }
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // 틀린 단어 복습 모드 토글
+    function toggleWrongReview() {
+      if (reviewMode) {
+        // 종료하여 전체로 복원
+        reviewMode = false;
+        rebuildWorkingList();
+        currentIndex = 0;
+        saveState();
+        renderCard();
+        return;
+      }
+      // 진입: 틀린 단어가 있어야 함
+      if (!wrongWords || wrongWords.length === 0) {
+        alert('틀린 단어 목록이 비어 있습니다. 퀴즈에서 틀린 단어가 자동으로 추가됩니다.');
+        return;
+      }
+      reviewMode = true;
+      rebuildWorkingList();
+      if (words.length === 0) {
+        alert('저장된 틀린 단어가 현재 단어 목록과 매칭되지 않습니다.');
+        reviewMode = false;
+        rebuildWorkingList();
+        return;
+      }
+      currentIndex = 0;
+      saveState();
+      setMode('card');
+      renderCard();
+    }
+
+    // 퀴즈에서 모아둔 틀린단어로 바로 복습 (버튼)
+    function startWrongReviewFromQuiz() {
+      if (!wrongWords || wrongWords.length === 0) {
+        alert('틀린 단어 목록이 비어 있습니다.');
+        return;
+      }
+      reviewMode = true;
+      rebuildWorkingList();
+      currentIndex = 0;
+      saveState();
+      setMode('card');
+      renderCard();
+    }
+
+    // 틀린 단어 초기화
+    function clearWrongWords() {
+      if (!wrongWords || wrongWords.length === 0) {
+        alert('틀린 단어 목록이 비어 있습니다.');
+        return;
+      }
+      if (!confirm('틀린 단어 목록을 초기화하시겠습니까?')) return;
+      wrongWords = [];
+      // 복습 모드 중이라면 종료
+      if (reviewMode) {
+        reviewMode = false;
+        rebuildWorkingList();
+        currentIndex = 0;
+      }
+      saveState();
+      renderCard();
+    }
+
+    // 유틸: 배열 셔플
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    // 키보드 지원: Space 뒤집기, ArrowRight = 외웠어요, ArrowLeft = 다시볼래요
+    document.addEventListener('keydown', (e) => {
+      const cardVisible = !document.getElementById('card-section').classList.contains('hidden');
+      if (cardVisible) {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          flipCard();
+        } else if (e.code === 'ArrowRight') {
+          e.preventDefault();
+          nextCard(true);
+        } else if (e.code === 'ArrowLeft') {
+          e.preventDefault();
+          nextCard(false);
+        }
+      } else {
+        if (e.code === 'Enter') {
+          e.preventDefault();
+          renderQuiz();
+        }
+      }
+    });
+
+    // 초기 로드
+    loadState();
+    renderCard();
+
+    // 페이지를 떠날 때 저장
+    window.addEventListener('beforeunload', saveState);
+  </script>
+</body>
+</html>
